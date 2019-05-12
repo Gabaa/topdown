@@ -13,17 +13,17 @@ def create_NPC(dt):
     vertical = random.choice([True, False])
     if vertical:
         x = random.randint(0, window.width)
-        y = random.choice([-1.5, 1.5]) * window.height + (window.height // 2)
+        y = random.choice([-1.2, 1.2]) * window.height + (window.height // 2)
     else:
-        x = random.choice([-1.5, 1.5]) * window.width + (window.width // 2)
+        x = random.choice([-1.2, 1.2]) * window.width + (window.width // 2)
         y = random.randint(0, window.height)
     NPC(
         pyglet.resource.image('images/orange_block.png'),
         x,
         y,
-        100 + npc_counter * 2
+        150 + npc_counter * 2
     )
-    pyglet.clock.schedule_once(create_NPC, 2)
+    pyglet.clock.schedule_once(create_NPC, 1)
 
 def destroy_gameobject(obj):
     if not obj in gameobjects_to_destroy:
@@ -154,7 +154,6 @@ class Bullet(GameObject):
 
 ### INITIALIZE
 window = pyglet.window.Window(fullscreen=False)
-window.set_caption("GAME")
 event_loop = pyglet.app.EventLoop()
 gameobjects = []
 gameobjects_to_destroy = []
@@ -182,6 +181,7 @@ def on_draw():
     player.image.blit(player.pos.x, player.pos.y)
     for obj in gameobjects:
         obj.image.blit(obj.pos.x, obj.pos.y)
+    window.set_caption("Top Down Shooter - Score: " + str(npc_counter))
 
 @window.event
 def on_key_press(symbol, modifiers):
