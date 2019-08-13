@@ -196,9 +196,9 @@ ammo_label = pyglet.text.Label('Ammo: {}'.format(player.gun.ammo),
                                font_name='Consolas', font_size=30)
 
 npc_label = pyglet.text.Label('NPCs spawned: {}'.format(npc_counter),
-                               x=window.width // 2, y=window.height * 0.05 + 50,
-                               anchor_x='center', anchor_y='center',
-                               font_name='Consolas', font_size=30)
+                              x=window.width // 2, y=window.height * 0.05 + 50,
+                              anchor_x='center', anchor_y='center',
+                              font_name='Consolas', font_size=30)
 
 
 # EVENTS
