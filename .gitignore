@@ -1,1 +1,3 @@
-highscores.txt
+/highscores.txt
+/.idea
+*/__pycache__/
