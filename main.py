@@ -16,13 +16,15 @@ def create_npc(dt):
     npc_counter += 1
 
     # whether the npc will spawn from the sides or top/bottom
-    spawnpoint = random.choice(((0, 1), (0, -1), (1, 0), (-1, 0)))
+    xspawn, yspawn = random.choice(((0, 1), (0, -1), (1, 0), (-1, 0)))
 
     # extracting x and y coordinates from the spawnpoint
-    x = random.randint(0, window.width) if spawnpoint[0] == 0 else \
-        spawnpoint[0] * 0.6 * window.width + (window.width // 2)
-    y = random.randint(0, window.height) if spawnpoint[1] == 0 else \
-        spawnpoint[1] * 0.6 * window.height + (window.height // 2)
+    if xspawn == 0:
+        x = random.randint(0, window.width)
+        y = 0.5 * window.height + yspawn * window.height * 0.6
+    else:
+        x = 0.5 * window.width + xspawn * window.width * 0.6
+        y = random.randint(0, window.height)
 
     NPC(x, y, 150 + npc_counter * 2)
 
@@ -40,12 +42,6 @@ def update(dt):
 
 
 # COMPONENTS
-class Position:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-
 class Velocity:
     def __init__(self, x=0.0, y=0.0):
         self.x = x
@@ -53,6 +49,12 @@ class Velocity:
 
 
 class Gun:
+    direction: tuple
+    ammo: int
+    max_ammo: int
+    reload_time: float
+    reload_timer: float
+
     def __init__(self, max_ammo, reload_time):
         self.direction = (0, 0)
 
@@ -65,45 +67,41 @@ class Gun:
 
 # GAMEOBJECTS
 class GameObject:
-    def __init__(self, image, x=0.0, y=0.0):
-        # Assigns the image of the gameobject, and sets the pivot to center
-        self.image = image
-        self.image.anchor_x = self.image.width // 2
-        self.image.anchor_y = self.image.height // 2
-
+    def __init__(self, x, y, w, h, movespeed, color):
         # Assigns the gameobject's position
-        self.pos = Position(x, y)
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.color = color
+        self.movespeed = movespeed
+        self.vel = Velocity()
 
         gameobjects.append(self)
 
     def update(self, dt):
-        pass
+        self.x += self.vel.x * self.movespeed * dt
+        self.y += self.vel.y * self.movespeed * dt
+
+    def draw(self):
+        pyglet.graphics.draw(4, pyglet.gl.GL_QUADS,
+                             ('v2f', (self.x, self.y,
+                                      self.x, self.y + self.h,
+                                      self.x + self.w, self.y + self.h,
+                                      self.x + self.w, self.y)),
+                             ('c3B', self.color * 4))
 
     def destroy(self):
         if self not in dirty_gameobjects:
             dirty_gameobjects.append(self)
 
 
-class Human(GameObject):
-    def __init__(self, image, x=0.0, y=0.0):
-        super().__init__(image, x, y)
-        self.vel = Velocity()
-        self.movespeed = 200.0
-
-    def update(self, dt):
-        self.pos.x += self.vel.x * self.movespeed * dt
-        self.pos.y += self.vel.y * self.movespeed * dt
-
-
-class NPC(Human):
-    IMAGE = pyglet.resource.image('images/orange_block.png')
-
-    def __init__(self, x=0.0, y=0.0, movespeed=100.0):
-        super().__init__(self.IMAGE, x, y)
-        self.movespeed = movespeed
+class NPC(GameObject):
+    def __init__(self, x, y, movespeed):
+        super().__init__(x, y, 32, 32, movespeed, (255, 120, 0))
 
     def set_vel_towards(self, obj):
-        v = Vector2.between(self.pos.x, self.pos.y, obj.pos.x, obj.pos.y)
+        v = Vector2.between(self.x, self.y, obj.x, obj.y)
 
         if v.length() > 1:
             v = v.normalized()
@@ -114,11 +112,11 @@ class NPC(Human):
     def check_collision(self):
         for obj in gameobjects:
             if type(obj) is Bullet:
-                if math.hypot(obj.pos.x - self.pos.x, obj.pos.y - self.pos.y) < 32:
+                if math.hypot(obj.x - self.x, obj.y - self.y) < 32:
                     self.destroy()
                     obj.destroy()
             elif type(obj) is Player:
-                if math.hypot(obj.pos.x - self.pos.x, obj.pos.y - self.pos.y) < 32:
+                if math.hypot(obj.x - self.x, obj.y - self.y) < 32:
                     pyglet.app.exit()
 
     def update(self, dt):
@@ -127,11 +125,9 @@ class NPC(Human):
         self.check_collision()
 
 
-class Player(Human):
-    IMAGE = pyglet.resource.image('images/red_block.png')
-
-    def __init__(self, x=0.0, y=0.0):
-        super().__init__(self.IMAGE, x, y)
+class Player(GameObject):
+    def __init__(self, x, y):
+        super().__init__(x, y, 32, 32, 200, (255, 0, 0))
         self.gun = Gun(5, 0.5)
 
     def update(self, dt):
@@ -143,8 +139,8 @@ class Player(Human):
             self.gun.reload_timer = 0
 
         if self.gun.direction != (0, 0) and self.gun.ammo > 0:
-            Bullet(self.pos.x,
-                   self.pos.y,
+            Bullet(self.x,
+                   self.y,
                    self.gun.direction[0],
                    self.gun.direction[1])
 
@@ -156,20 +152,15 @@ class Player(Human):
 
 
 class Bullet(GameObject):
-    IMAGE = pyglet.resource.image('images/small_blue_block.png')
-
     def __init__(self, x, y, vx, vy):
-        super().__init__(self.IMAGE, x=x, y=y)
-
+        super().__init__(x, y, 16, 16, 500.0, (0, 0, 255))
         self.vel = Velocity(vx, vy)
-        self.movespeed = 500.0
-
         self.age = 0
         self.maxage = 3
 
     def update(self, dt):
-        self.pos.x += self.vel.x * self.movespeed * dt
-        self.pos.y += self.vel.y * self.movespeed * dt
+        self.x += self.vel.x * self.movespeed * dt
+        self.y += self.vel.y * self.movespeed * dt
         self.age += dt
         if self.age > self.maxage:
             self.destroy()
@@ -211,10 +202,8 @@ def on_close():
 def on_draw():
     window.clear()
 
-    player.image.blit(player.pos.x, player.pos.y)
-
     for obj in gameobjects:
-        obj.image.blit(obj.pos.x, obj.pos.y)
+        obj.draw()
 
     ammo_label.text = 'Ammo: {}'.format(player.gun.ammo)
     ammo_label.draw()
